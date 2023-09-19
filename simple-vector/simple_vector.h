@@ -63,11 +63,8 @@ public:
 
     SimpleVector& operator=(const SimpleVector& rhs) {
         if (&items_ != &rhs.items_) {
-            ArrayPtr<Type> temp(rhs.GetCapacity());
-            std::copy(rhs.begin(), rhs.end(), temp.Get());
-            items_.swap(temp);
-            size_ = rhs.GetSize();
-            capacity_ = rhs.GetCapacity();
+           SimpleVector temp(rhs);
+            swap(temp);
         }
         return *this;
     }
@@ -96,11 +93,13 @@ public:
 
     // Возвращает ссылку на элемент с индексом index
     Type& operator[](size_t index) noexcept {
+        assert (index < size_); 
         return items_[index];
     }
 
     // Возвращает константную ссылку на элемент с индексом index
     const Type& operator[](size_t index) const noexcept {
+        assert (index < size_);
         return items_[index];
     }
 
@@ -131,6 +130,7 @@ public:
         }
         if (new_size <= capacity_) {
             Fill(items_.Get() + size_, items_.Get() + size_ + new_size);
+            size_ = new_size;
         }
         if (new_size > capacity_) {
             size_t new_capacity = std::max(new_size, capacity_ * 2);
@@ -138,7 +138,6 @@ public:
             Fill(temp.Get(), temp.Get() + new_capacity);
             std::move(items_.Get(), items_.Get() + capacity_, temp.Get());
             items_.swap(temp);
-
             size_ = new_size;
             capacity_ = new_capacity;
         }
@@ -213,7 +212,8 @@ public:
     // Если перед вставкой значения вектор был заполнен полностью,
     // вместимость вектора должна увеличиться вдвое, а для вектора вместимостью 0 стать равной 1
     Iterator Insert(ConstIterator pos, const Type& value) {
-        size_t count = pos - items_.Get();
+        assert(pos >= begin() && pos <= end());
+        int count = pos - items_.Get();
         if (capacity_ == 0) {
             ArrayPtr<Type> temp(1);
             temp[count] = value;
@@ -241,7 +241,8 @@ public:
     }
 
     Iterator Insert(Iterator pos, Type&& value) {
-        size_t count = pos - items_.Get();
+        assert (pos >= begin() && pos <= end());
+        int count = pos - items_.Get();
         if (capacity_ == 0) {
             ArrayPtr<Type> temp(1);
             temp[count] = std::move(value);
@@ -272,12 +273,15 @@ public:
 
     // "Удаляет" последний элемент вектора. Вектор не должен быть пустым
     void PopBack() noexcept {
-        if (items_) --size_;
+        assert (size_ != 0);
+        --size_;
     }
 
     // Удаляет элемент вектора в указанной позиции
     Iterator Erase(ConstIterator pos) {
-          size_t count = pos - items_.Get();
+        assert (pos >= begin() && pos <= end());
+        assert (size_ != 0);
+        int count = pos - items_.Get();
         std::move(items_.Get() + count + 1, items_.Get() + size_, items_.Get() + count);
         --size_;
         return &items_[count];
@@ -306,7 +310,7 @@ private:
     size_t capacity_ = 0;
 
 
-    void Fill(Iterator first, Iterator last) {
+    void Fill (Iterator first, Iterator last) {
         while (first != last) {
             *first = std::move(Type());
             ++first;
@@ -326,8 +330,7 @@ inline bool operator==(const SimpleVector<Type>& lhs, const SimpleVector<Type>& 
 
 template <typename Type>
 inline bool operator!=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return !std::equal(lhs.begin(), lhs.end(),
-        rhs.begin());
+    return !(lhs == rhs);
 }
 
 template <typename Type>
@@ -338,15 +341,15 @@ inline bool operator<(const SimpleVector<Type>& lhs, const SimpleVector<Type>& r
 
 template <typename Type>
 inline bool operator<=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return (lhs < rhs || lhs == rhs);
+    return !(rhs < lhs);
 }
 
 template <typename Type>
 inline bool operator>(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return !(lhs <= rhs);
+    return (rhs < lhs);
 }
 
 template <typename Type>
 inline bool operator>=(const SimpleVector<Type>& lhs, const SimpleVector<Type>& rhs) {
-    return !(lhs < rhs);
+    return !(rhs > lhs);
 }
